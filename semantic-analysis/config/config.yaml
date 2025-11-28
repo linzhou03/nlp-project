@@ -1,0 +1,103 @@
+# 语义分析项目配置文件
+# Semantic Analysis Project Configuration
+
+# 通用配置 / General Settings
+general:
+  seed: 42  # 随机种子
+  device: "auto"  # 设备选择: auto, cpu, cuda
+  log_level: "INFO"  # 日志级别
+
+# 模型配置 / Model Settings
+models:
+  # BERT模型配置
+  bert:
+    model_name: "bert-base-uncased"  # 预训练模型名称
+    max_length: 512  # 最大序列长度
+    batch_size: 16  # 批次大小
+  
+  # 词义消歧配置
+  wsd:
+    context_window: 50  # 上下文窗口大小（词数）
+    knn_neighbors: 5  # KNN分类器的邻居数
+    similarity_threshold: 0.5  # 相似度阈值
+    use_stopwords: true  # 是否使用停用词过滤
+    
+  # 语义角色标注配置
+  srl:
+    # BiLSTM-CRF配置
+    bilstm:
+      hidden_size: 256  # 隐藏层大小
+      num_layers: 2  # LSTM层数
+      dropout: 0.5  # Dropout率
+      bidirectional: true  # 是否双向
+    
+    # 训练配置
+    training:
+      learning_rate: 0.001  # 学习率
+      epochs: 50  # 训练轮数
+      early_stopping_patience: 5  # 早停耐心值
+
+# 数据配置 / Data Settings
+data:
+  # 数据路径
+  paths:
+    raw_data: "data/raw"  # 原始数据路径
+    processed_data: "data/processed"  # 处理后数据路径
+    cache_dir: "data/cache"  # 缓存目录
+    
+  # WSD数据集
+  wsd_datasets:
+    - name: "semcor"
+      type: "nltk"  # 通过NLTK加载
+    - name: "senseval2"
+      type: "external"
+      path: "data/wsd/senseval2"
+      
+  # SRL数据集
+  srl_datasets:
+    - name: "propbank"
+      type: "conll"
+      path: "data/srl/propbank"
+
+# 评估配置 / Evaluation Settings
+evaluation:
+  # WSD评估
+  wsd:
+    metrics:
+      - accuracy
+      - precision
+      - recall
+      - f1
+    report_per_pos: true  # 按词性报告结果
+    
+  # SRL评估
+  srl:
+    metrics:
+      - precision
+      - recall
+      - f1
+    strict_match: true  # 严格匹配模式
+    
+# 输出配置 / Output Settings
+output:
+  results_dir: "results"  # 结果保存目录
+  models_dir: "saved_models"  # 模型保存目录
+  reports_dir: "reports"  # 报告保存目录
+  
+  # 可视化设置
+  visualization:
+    dpi: 300  # 图片分辨率
+    format: "png"  # 图片格式
+    style: "seaborn"  # matplotlib样式
+
+# WordNet配置 / WordNet Settings
+wordnet:
+  lang: "eng"  # 语言
+  use_lemmatization: true  # 是否使用词形还原
+  max_senses: 10  # 每个词最多考虑的词义数
+
+# 日志配置 / Logging Settings
+logging:
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/semantic_analysis.log"
+  console: true
