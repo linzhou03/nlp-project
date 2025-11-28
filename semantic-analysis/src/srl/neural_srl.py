@@ -142,7 +142,16 @@ class BiLSTMCRFSRL(NeuralSRL):
         """
         import torch
         import torch.nn as nn
-        from torchcrf import CRF
+        try:
+            from TorchCRF import CRF
+            USE_TORCHCRF = True
+        except ImportError:
+            try:
+                from torchcrf import CRF
+                USE_TORCHCRF = False
+            except ImportError:
+                CRF = None
+                USE_TORCHCRF = False
         
         class BiLSTMCRF(nn.Module):
             """BiLSTM-CRF模型"""
@@ -162,7 +171,20 @@ class BiLSTMCRFSRL(NeuralSRL):
                 )
                 self.dropout = nn.Dropout(dropout)
                 self.hidden2tag = nn.Linear(hidden_dim, num_tags)
-                self.crf = CRF(num_tags, batch_first=True)
+                self.num_tags = num_tags
+                
+                # 根据CRF库版本初始化
+                if CRF is not None:
+                    if USE_TORCHCRF:
+                        # TorchCRF library (different API)
+                        self.crf = CRF(num_tags)
+                    else:
+                        # pytorch-crf library
+                        self.crf = CRF(num_tags, batch_first=True)
+                else:
+                    self.crf = None
+                    
+                self.use_torchcrf = USE_TORCHCRF
             
             def forward(self, x, mask=None):
                 """前向传播，返回发射分数"""
@@ -177,14 +199,33 @@ class BiLSTMCRFSRL(NeuralSRL):
                 emissions = self.forward(x, mask)
                 if mask is None:
                     mask = torch.ones_like(x, dtype=torch.bool)
-                return -self.crf(emissions, tags, mask=mask, reduction='mean')
+                
+                if self.crf is not None:
+                    if self.use_torchcrf:
+                        # TorchCRF uses different API and returns per-sample loss
+                        log_likelihood = self.crf(emissions, tags, mask)
+                        return -log_likelihood.mean()  # Average over batch
+                    else:
+                        return -self.crf(emissions, tags, mask=mask, reduction='mean')
+                else:
+                    # Fallback to simple cross entropy
+                    loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
+                    return loss_fn(emissions.view(-1, self.num_tags), tags.view(-1))
             
             def decode(self, x, mask=None):
                 """解码得到最佳标签序列"""
                 emissions = self.forward(x, mask)
                 if mask is None:
                     mask = torch.ones_like(x, dtype=torch.bool)
-                return self.crf.decode(emissions, mask=mask)
+                    
+                if self.crf is not None:
+                    if self.use_torchcrf:
+                        return self.crf.viterbi_decode(emissions, mask)
+                    else:
+                        return self.crf.decode(emissions, mask=mask)
+                else:
+                    # Fallback to argmax
+                    return torch.argmax(emissions, dim=-1).tolist()
         
         self._model = BiLSTMCRF(
             vocab_size, self.embedding_dim, self.hidden_dim,
